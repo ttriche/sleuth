@@ -7,8 +7,8 @@
 #' @param min_prop the minimum proportion of reads to pass this filter
 #' @return a logical of length 1
 #' @export
-basic_filter <- function(row, min_reads = 5, min_prop = 0.8) {
-  mean(row > min_reads) > min_prop
+basic_filter <- function(row, min_reads = 5, min_prop = 0.47) {
+  mean(row >= min_reads) >= min_prop
 }
 
 # currently defunct
@@ -60,7 +60,7 @@ filter_df_by_groups <- function(df, fun, group_df, ...) {
 #' might be useful. For example, you might have columns 'target_id',
 #' 'ensembl_gene' and 'entrez_gene' to denote different transcript to gene
 #' mappings.
-#' @param ... additional arguments passed to other functions
+#' @param ... additional arguments passed to the filter function
 #' @return a \code{sleuth} object containing all kallisto samples, metadata,
 #' and summary statistics
 #' @seealso \code{\link{sleuth_fit}} to fit a model, \code{\link{sleuth_test}} to
@@ -160,7 +160,7 @@ sleuth_prep <- function(
   if ( normalize ) {
     msg("normalizing est_counts")
     est_counts_spread <- spread_abundance_by(obs_raw, "est_counts")
-    filter_bool <- apply(est_counts_spread, 1, filter_fun)
+    filter_bool <- apply(est_counts_spread, 1, filter_fun, ...)
     # filter_bool <- filter_df_all_groups(est_counts_spread, filter_fun,
     #   sample_to_covariates)
     filter_true <- filter_bool[filter_bool]
@@ -270,7 +270,8 @@ sleuth_summarize_bootstrap <- function(obj, force = FALSE, verbose = FALSE) {
   s_bs <- inner_join(
     data.table::data.table(tpm_bs),
     data.table::data.table(data.table(counts_bs)),
-    by = c("target_id", "sample", "condition")
+    #by = c("target_id", "sample", "condition")
+    by = c("target_id", "sample")
     ) %>%
     as.data.frame(stringsAsFactors = FALSE)
 
@@ -283,10 +284,9 @@ sleuth_summarize_bootstrap_col <- function(obj, col, transform = identity) {
   res <- lapply(seq_along(obj$kal), function(i)
     {
       cur_samp <- obj$sample_to_covariates$sample[i]
-      cur_cond <- obj$sample_to_covariates$condition[i]
 
       dplyr::mutate(summarize_bootstrap(obj$kal[[i]], col, transform),
-        sample = cur_samp, condition = cur_cond)
+        sample = cur_samp)
     })
 
   dplyr::bind_rows(res)
